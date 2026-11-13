@@ -104,7 +104,8 @@ def _render_candidate_selection(choice, candidates, key_prefix) -> None:
 def show_exam_analyzer() -> None:
     st.header("4択問題・解説")
     st.warning(
-        "学習用の下書きです。AIの判定や引用の関連性・医学的正確性は自動保証できません。"
+        "学習用の下書きです。AIは仮判定を行い、表示する解説は確定根拠からの原文抜粋です。"
+        "引用の関連性・医学的正確性は自動保証できません。"
         "原本を照合し、教員等が確認してください。"
     )
     try:
@@ -295,8 +296,14 @@ def show_exam_analyzer() -> None:
                     st.image(render_preview(settings.data_dir, ref["page_id"]))
             if row["citation_status"] == "match":
                 st.warning("引用検証は原文中の実在確認のみです。引用が判定を支持するか、医学的妥当性は未検証です。")
+            if row["verdict"] == "unknown":
+                explanation_label = "判定不能メッセージ・補足（編集可能）"
+            elif row["edited"]:
+                explanation_label = "手動編集済み解説（編集可能）"
+            else:
+                explanation_label = "解説（確定根拠からの原文抜粋。編集可能）"
             with st.form("edit_explanation_{}".format(row["id"])):
-                text = st.text_area("解説を編集", row["explanation"], height=100)
+                text = st.text_area(explanation_label, row["explanation"], height=100)
                 save = st.form_submit_button("解説を保存")
             if save:
                 edit_explanation(settings.data_dir, row["id"], text)

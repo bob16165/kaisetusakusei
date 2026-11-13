@@ -93,13 +93,18 @@ class ExamTests(unittest.TestCase):
         _, choices, _ = get_question(self.data, "Q-1")
         self.confirm(choices[0]["id"], self.evidence)
         result = {"done": True, "response": json.dumps({
-            "verdict": "false", "reason": "資料の説明と異なるため誤りです。",
+            "verdict": "false", "reason": "心筋のポンプ機能について説明します。",
             "evidence_id": 1, "quote": "documented result is blue"
         }, ensure_ascii=False)}
         with patch("backend.services.exam_service._generate", return_value=result) as generate:
             answer = generate_choice(self.settings, "Q-1", choices[0]["id"])
         self.assertEqual(answer.verdict, "matches")
+        self.assertEqual(answer.text, answer.quote)
+        self.assertNotIn("ポンプ機能", answer.text)
+        self.assertEqual(get_question(self.data, "Q-1")[1][0]["explanation"], answer.quote)
         self.assertIn("選択肢の記述そのもの", generate.call_args.args[1]["prompt"])
+        self.assertIn("利用者向けには", generate.call_args.args[1]["prompt"])
+        self.assertIn("原文を抜粋", generate.call_args.args[1]["prompt"])
         self.assertNotIn("模範解答", generate.call_args.args[1]["prompt"])
         for reference, quote in ((1, "invented quote"), (2, "documented result is blue")):
             result["response"] = json.dumps({"verdict": "false", "reason": "理由",
@@ -258,7 +263,7 @@ class ExamTests(unittest.TestCase):
             count, _ = auto_generate_question(self.settings, "auto", regenerate=True)
         self.assertEqual(count, 4)
         _, replaced, _ = get_question(self.data, "auto")
-        self.assertEqual(replaced[0]["explanation"], "資料の定義と異なります。")
+        self.assertEqual(replaced[0]["explanation"], "documented result is blue")
         self.assertFalse(replaced[0]["edited"])
 
     def test_auto_no_evidence_and_unreliable_output_are_explicit(self):
@@ -296,10 +301,12 @@ class ExamTests(unittest.TestCase):
             "evidence_id": 1, "quote": "documented result is blue",
         })}
         with patch("backend.services.exam_service._generate", return_value=result) as generate:
-            generate_choice(self.settings, "Q-1", rows[0]["id"])
+            answer = generate_choice(self.settings, "Q-1", rows[0]["id"])
         prompt = generate.call_args.args[1]["prompt"]
         self.assertIn(self.evidence.text, prompt)
         self.assertNotIn(self.alternate_evidence.text, prompt)
+        self.assertEqual(answer.text, "documented result is blue")
+        self.assertNotIn("資料の記載と一致します。", answer.text)
         _, batch_rows, _ = get_question(self.data, "Q-1")
         self.confirm(batch_rows[1]["id"], self.evidence)
         with patch(
